@@ -9,6 +9,9 @@ let appState = {
 // DOM Elements
 const btnRefresh = document.getElementById('btn-refresh');
 const btnExportCSV = document.getElementById('btn-export-csv');
+const btnThemeToggle = document.getElementById('btn-theme-toggle');
+const iconMoon = document.querySelector('.icon-moon');
+const iconSun = document.querySelector('.icon-sun');
 const btnRetry = document.getElementById('btn-retry');
 const searchInput = document.getElementById('search-input');
 const filterChips = document.querySelectorAll('.filter-chip');
@@ -42,6 +45,14 @@ const btnModalPost = document.getElementById('btn-modal-post');
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
+    // Load cached theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-mode');
+        iconMoon.classList.remove('hidden');
+        iconSun.classList.add('hidden');
+    }
+    
     fetchReleaseNotes();
     setupEventListeners();
 });
@@ -50,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     btnRefresh.addEventListener('click', fetchReleaseNotes);
     btnExportCSV.addEventListener('click', exportFeedToCSV);
+    btnThemeToggle.addEventListener('click', toggleTheme);
     btnRetry.addEventListener('click', fetchReleaseNotes);
     
     // Search listener (with simple debounce/input response)
@@ -522,6 +534,21 @@ function exportFeedToCSV() {
     // Cleanup
     document.body.removeChild(downloadLink);
     URL.revokeObjectURL(url);
+}
+
+// Toggle light/dark theme color scheme
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-mode');
+    
+    if (isLight) {
+        iconMoon.classList.remove('hidden');
+        iconSun.classList.add('hidden');
+        localStorage.setItem('theme', 'light');
+    } else {
+        iconMoon.classList.add('hidden');
+        iconSun.classList.remove('hidden');
+        localStorage.setItem('theme', 'dark');
+    }
 }
 
 // Copy Updates Text to Clipboard

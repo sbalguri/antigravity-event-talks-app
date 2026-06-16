@@ -950,3 +950,118 @@ a:hover {
     color: #1d9bf0;
 }
 
+/* Light Mode CSS Overrides */
+body.light-mode {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+    --border-color: rgba(15, 23, 42, 0.08);
+    --border-highlight: rgba(15, 23, 42, 0.15);
+    --text-main: #0f172a;
+    --text-sub: #334155;
+    --text-muted: #64748b;
+    --card-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 40%);
+}
+
+body.light-mode .brand-text h1,
+body.light-mode .modal-header h2 {
+    background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+body.light-mode .btn-refresh {
+    background: rgba(15, 23, 42, 0.03);
+}
+
+body.light-mode .btn-refresh:hover {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+body.light-mode .card-content-html code {
+    background: rgba(15, 23, 42, 0.05);
+    color: #b91c1c;
+}
+
+body.light-mode .badge.feature {
+    background: rgba(59, 130, 246, 0.08);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+body.light-mode .badge.issue {
+    background: rgba(245, 158, 11, 0.08);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+body.light-mode .badge.announcement {
+    background: rgba(139, 92, 246, 0.08);
+    color: #6d28d9;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+body.light-mode .badge.change {
+    background: rgba(16, 185, 129, 0.08);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+body.light-mode .badge.breaking {
+    background: rgba(239, 68, 68, 0.08);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+body.light-mode .badge.update {
+    background: rgba(15, 23, 42, 0.05);
+    color: var(--text-main);
+    border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
+body.light-mode .btn-card-action:hover {
+    background: rgba(15, 23, 42, 0.03);
+}
+
+body.light-mode .date-header {
+    background: linear-gradient(180deg, var(--bg-primary) 70%, transparent 100%);
+}
+
+body.light-mode .search-container input {
+    background: var(--bg-secondary);
+}
+
+body.light-mode .search-container input:focus {
+    background-color: #f8fafc;
+}
+
+body.light-mode .filter-chip {
+    background: var(--bg-secondary);
+}
+
+body.light-mode .filter-chip:hover {
+    background: var(--bg-tertiary);
+}
+
+body.light-mode .filter-chip.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    border-color: var(--accent-blue);
+}
+
+body.light-mode .selection-banner {
+    background: var(--bg-secondary);
+    border-color: var(--accent-blue);
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
+}
+
+body.light-mode .modal-footer {
+    background: rgba(15, 23, 42, 0.02);
+}
+
+
