@@ -1,0 +1,24 @@
+# Python bytecode & cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+.env
+.venv
+
+# Flask / development
+instance/
+.webassets-cache
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Local generated news/reports (optional)
+news.txt
+summary.txt
