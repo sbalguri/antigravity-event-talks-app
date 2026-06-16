@@ -13,6 +13,7 @@ const btnThemeToggle = document.getElementById('btn-theme-toggle');
 const iconMoon = document.querySelector('.icon-moon');
 const iconSun = document.querySelector('.icon-sun');
 const btnRetry = document.getElementById('btn-retry');
+const btnResetFilters = document.getElementById('btn-reset-filters');
 const searchInput = document.getElementById('search-input');
 const filterChips = document.querySelectorAll('.filter-chip');
 const releaseFeed = document.getElementById('release-feed');
@@ -39,6 +40,7 @@ const composerModal = document.getElementById('composer-modal');
 const modalClose = document.getElementById('modal-close');
 const tweetTextarea = document.getElementById('tweet-textarea');
 const charCounter = document.getElementById('char-counter');
+const composerWarning = document.getElementById('composer-warning');
 const twitterPreviewText = document.getElementById('twitter-preview-text');
 const btnModalCancel = document.getElementById('btn-modal-cancel');
 const btnModalPost = document.getElementById('btn-modal-post');
@@ -59,12 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Event Listeners setup
 function setupEventListeners() {
-    btnRefresh.addEventListener('click', fetchReleaseNotes);
+    btnRefresh.addEventListener('click', () => fetchReleaseNotesForce());
     btnExportCSV.addEventListener('click', exportFeedToCSV);
     btnThemeToggle.addEventListener('click', toggleTheme);
-    btnRetry.addEventListener('click', fetchReleaseNotes);
+    btnRetry.addEventListener('click', () => fetchReleaseNotesForce());
+    btnResetFilters.addEventListener('click', resetFiltersAndSearch);
     
-    // Search listener (with simple debounce/input response)
+    // Search listener (with simple input response)
     searchInput.addEventListener('input', (e) => {
         appState.searchQuery = e.target.value.toLowerCase().trim();
         renderFeed();
@@ -114,16 +117,52 @@ function setupEventListeners() {
     });
 }
 
-// Fetch Release Notes from Flask API
+// Fetch notes using local cache for instant load (silent background refresh)
 async function fetchReleaseNotes() {
+    const cached = localStorage.getItem('bq_release_notes_cache');
+    let hasCache = false;
+    
+    if (cached) {
+        try {
+            const cacheData = JSON.parse(cached);
+            if (cacheData && Array.isArray(cacheData.data)) {
+                appState.releaseNotes = cacheData.data;
+                calculateStats();
+                renderFeed();
+                showContent();
+                hasCache = true;
+                
+                // Trigger a silent background refresh
+                fetchReleaseNotesSilent(false);
+            }
+        } catch (e) {
+            console.error("Failed to parse cached release notes:", e);
+        }
+    }
+    
+    if (!hasCache) {
+        showLoading();
+        await fetchReleaseNotesSilent(true);
+    }
+}
+
+// Force a visual refresh (reloads full loading screen)
+async function fetchReleaseNotesForce() {
     showLoading();
+    await fetchReleaseNotesSilent(true);
+}
+
+// Perform network fetch silently or with visual loading state
+async function fetchReleaseNotesSilent(showSpinner = false) {
+    if (showSpinner) {
+        btnRefresh.classList.add('spinning');
+    }
     try {
         const response = await fetch('/api/release-notes');
         const result = await response.json();
         
         if (result.status === 'success') {
-            // Add unique IDs to each individual update block
-            appState.releaseNotes = result.data.map((entry, entryIdx) => {
+            const newNotes = result.data.map((entry, entryIdx) => {
                 entry.updates = entry.updates.map((update, updateIdx) => {
                     return {
                         ...update,
@@ -135,20 +174,70 @@ async function fetchReleaseNotes() {
                 return entry;
             });
             
-            // Clear selection on refresh
-            deselectAllNotes();
+            // Check if data actually changed
+            const oldDataString = JSON.stringify(appState.releaseNotes);
+            const newDataString = JSON.stringify(newNotes);
             
-            // Render Stats & Feed
-            calculateStats();
-            renderFeed();
+            if (oldDataString !== newDataString || !localStorage.getItem('bq_release_notes_cache')) {
+                // Preserve checked selections by mapping content
+                const keptSelections = new Map();
+                appState.selectedNotes.forEach((note) => {
+                    newNotes.forEach(entry => {
+                        entry.updates.forEach(u => {
+                            if (u.type === note.type && stripHtml(u.description) === stripHtml(note.description) && u.date === note.date) {
+                                keptSelections.set(u.id, u);
+                            }
+                        });
+                    });
+                });
+                
+                appState.releaseNotes = newNotes;
+                appState.selectedNotes = keptSelections;
+                
+                calculateStats();
+                renderFeed();
+                updateSelectionBanner();
+                
+                // Save to cache
+                const cacheObj = {
+                    timestamp: Date.now(),
+                    data: newNotes
+                };
+                localStorage.setItem('bq_release_notes_cache', JSON.stringify(cacheObj));
+            }
             showContent();
         } else {
-            showError(result.message || 'Failed to fetch release notes feed.');
+            if (showSpinner) {
+                showError(result.message || 'Failed to fetch release notes feed.');
+            } else {
+                console.warn("Silent background fetch failed:", result.message);
+            }
         }
     } catch (err) {
-        showError('Network error. Check connection or Flask server logs.');
-        console.error(err);
+        if (showSpinner) {
+            showError('Network error. Check connection or Flask server logs.');
+        } else {
+            console.error("Silent background fetch network error:", err);
+        }
+    } finally {
+        btnRefresh.classList.remove('spinning');
     }
+}
+
+// Reset chip filters and keywords search inputs
+function resetFiltersAndSearch() {
+    searchInput.value = '';
+    appState.searchQuery = '';
+    
+    appState.activeFilter = 'all';
+    filterChips.forEach(chip => {
+        chip.classList.remove('active');
+        if (chip.dataset.filter === 'all') {
+            chip.classList.add('active');
+        }
+    });
+    
+    renderFeed();
 }
 
 // Stats Calculation
@@ -175,11 +264,9 @@ function calculateStats() {
 // Feed Rendering
 function renderFeed() {
     releaseFeed.innerHTML = '';
-    
     let renderedEntriesCount = 0;
 
     appState.releaseNotes.forEach(entry => {
-        // Filter updates inside the entry
         const filteredUpdates = entry.updates.filter(update => {
             // Category Filter
             let matchesCategory = false;
@@ -237,7 +324,7 @@ function renderFeed() {
         }
     });
 
-    // Check empty state
+    // Toggle empty state block
     if (renderedEntriesCount === 0) {
         emptyState.classList.remove('hidden');
     } else {
@@ -252,6 +339,7 @@ function createUpdateCard(update) {
     const card = document.createElement('div');
     card.className = `update-card ${isSelected ? 'selected' : ''}`;
     card.dataset.id = update.id;
+    card.tabIndex = 0; // Make cards focusable by keyboard tabbing
     
     // Checkbox container
     const selectContainer = document.createElement('div');
@@ -261,6 +349,7 @@ function createUpdateCard(update) {
     checkbox.type = 'checkbox';
     checkbox.className = 'card-checkbox';
     checkbox.checked = isSelected;
+    checkbox.tabIndex = -1; // Remove checkbox itself from tab flow since card focuses
     checkbox.ariaLabel = `Select update about ${update.type}`;
     checkbox.addEventListener('change', (e) => {
         toggleNoteSelection(update, e.target.checked);
@@ -284,10 +373,10 @@ function createUpdateCard(update) {
     cardMeta.appendChild(badge);
     cardBody.appendChild(cardMeta);
     
-    // Description (raw html rendered safely)
+    // Description (sanitized HTML to open links in a new tab)
     const contentHtml = document.createElement('div');
     contentHtml.className = 'card-content-html';
-    contentHtml.innerHTML = update.description;
+    contentHtml.innerHTML = cleanAndFormatLinks(update.description);
     cardBody.appendChild(contentHtml);
     
     // Actions Panel (Single Card Tweet / Copy)
@@ -303,7 +392,8 @@ function createUpdateCard(update) {
         </svg>
         <span>Tweet</span>
     `;
-    btnTweet.addEventListener('click', () => {
+    btnTweet.addEventListener('click', (e) => {
+        e.stopPropagation();
         tweetUpdates([update]);
     });
     
@@ -317,7 +407,8 @@ function createUpdateCard(update) {
         </svg>
         <span>Copy</span>
     `;
-    btnCopy.addEventListener('click', () => {
+    btnCopy.addEventListener('click', (e) => {
+        e.stopPropagation();
         copyUpdatesToClipboard([update], btnCopy);
     });
     
@@ -327,7 +418,7 @@ function createUpdateCard(update) {
     
     card.appendChild(cardBody);
     
-    // Clicking card background triggers checkbox toggle (except clicking links/buttons)
+    // Click card background to toggle checkbox (except links/buttons)
     card.addEventListener('click', (e) => {
         if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON' && e.target.closest('button') === null && e.target.tagName !== 'INPUT') {
             checkbox.checked = !checkbox.checked;
@@ -335,7 +426,31 @@ function createUpdateCard(update) {
         }
     });
     
+    // Keyboard listener on card focusing
+    card.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+            if (e.target.tagName !== 'A' && e.target.tagName !== 'BUTTON' && e.target.closest('button') === null) {
+                e.preventDefault();
+                checkbox.checked = !checkbox.checked;
+                toggleNoteSelection(update, checkbox.checked);
+            }
+        }
+    });
+    
     return card;
+}
+
+// Sanitize HTML links: target="_blank" and rel="noopener noreferrer"
+function cleanAndFormatLinks(htmlContent) {
+    if (!htmlContent) return '';
+    const doc = new DOMParser().parseFromString(htmlContent, 'text/html');
+    const links = doc.querySelectorAll('a');
+    links.forEach(link => {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+        link.classList.add('external-link');
+    });
+    return doc.body.innerHTML;
 }
 
 // Toggle Selection State
@@ -370,13 +485,11 @@ function updateSelectionBanner() {
     
     if (count > 0) {
         selectionBanner.classList.remove('hidden');
-        // Force reflow for animation
-        void selectionBanner.offsetWidth;
+        void selectionBanner.offsetWidth; // Force reflow
         selectionBanner.classList.add('active');
         selectionCount.textContent = `${count} update${count > 1 ? 's' : ''} selected`;
     } else {
         selectionBanner.classList.remove('active');
-        // Wait for slide down transition before hiding completely
         setTimeout(() => {
             if (appState.selectedNotes.size === 0) {
                 selectionBanner.classList.add('hidden');
@@ -455,6 +568,10 @@ function updateTweetPreview() {
         btnModalPost.disabled = true;
         btnModalPost.style.opacity = 0.5;
         btnModalPost.style.pointerEvents = 'none';
+        
+        // Character counter warning message
+        composerWarning.textContent = `⚠️ Post exceeds character limit by ${charCount - 280} character${charCount - 280 > 1 ? 's' : ''}.`;
+        composerWarning.classList.remove('hidden');
     } else {
         btnModalPost.disabled = false;
         btnModalPost.style.opacity = 1;
@@ -462,6 +579,10 @@ function updateTweetPreview() {
         if (charCount > 250) {
             charCounter.classList.add('warning');
         }
+        
+        // Hide warning
+        composerWarning.classList.add('hidden');
+        composerWarning.textContent = '';
     }
     
     let formattedText = escapeHtml(text);
@@ -480,75 +601,6 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-}
-
-// Export parsed feed to CSV file
-function exportFeedToCSV() {
-    if (appState.releaseNotes.length === 0) {
-        alert("No release notes available to export. Please reload data first.");
-        return;
-    }
-    
-    // CSV headers
-    const headers = ["Date", "Link", "Update Type", "Description"];
-    const csvRows = [headers.join(",")];
-    
-    appState.releaseNotes.forEach(entry => {
-        entry.updates.forEach(update => {
-            // Convert HTML description to clean plain text
-            let descText = stripHtml(update.description).trim();
-            // Collapse whitespaces
-            descText = descText.replace(/\s+/g, ' ');
-            
-            const row = [
-                entry.date,
-                update.link,
-                update.type,
-                descText
-            ];
-            
-            // Format each column safely for CSV: double quote wraps, escaping existing double quotes
-            const formattedRow = row.map(cell => {
-                const escaped = String(cell).replace(/"/g, '""');
-                return `"${escaped}"`;
-            });
-            
-            csvRows.push(formattedRow.join(","));
-        });
-    });
-    
-    const csvContent = csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    
-    // Create temporary download link element
-    const downloadLink = document.createElement("a");
-    const timestamp = new Date().toISOString().slice(0, 10);
-    downloadLink.href = url;
-    downloadLink.download = `bigquery_release_notes_${timestamp}.csv`;
-    downloadLink.style.display = "none";
-    
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    
-    // Cleanup
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(url);
-}
-
-// Toggle light/dark theme color scheme
-function toggleTheme() {
-    const isLight = document.body.classList.toggle('light-mode');
-    
-    if (isLight) {
-        iconMoon.classList.remove('hidden');
-        iconSun.classList.add('hidden');
-        localStorage.setItem('theme', 'light');
-    } else {
-        iconMoon.classList.add('hidden');
-        iconSun.classList.remove('hidden');
-        localStorage.setItem('theme', 'dark');
-    }
 }
 
 // Copy Updates Text to Clipboard
@@ -620,7 +672,6 @@ function showLoading() {
 }
 
 function showContent() {
-    btnRefresh.classList.remove('spinning');
     loadingState.classList.add('hidden');
     releaseFeed.classList.remove('hidden');
 }

@@ -1064,4 +1064,51 @@ body.light-mode .modal-footer {
     background: rgba(15, 23, 42, 0.02);
 }
 
+/* Keyboard A11y Focus Outlines */
+:focus-visible {
+    outline: 2px solid var(--accent-blue) !important;
+    outline-offset: 3px !important;
+}
+
+/* Make card keyboard navigation focus offset clean and animated */
+.update-card {
+    cursor: pointer;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+}
+
+.update-card:focus-visible {
+    outline-color: var(--accent-blue) !important;
+    transform: translateX(4px);
+    background: var(--bg-tertiary);
+}
+
+/* External link typography inside descriptions */
+.card-content-html a.external-link::after {
+    content: " ↗";
+    font-size: 0.8em;
+    display: inline-block;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+/* Composer validation warning text */
+.composer-warning {
+    font-size: 0.825rem;
+    font-weight: 600;
+    color: var(--accent-crimson);
+    margin-top: -0.25rem;
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
 
