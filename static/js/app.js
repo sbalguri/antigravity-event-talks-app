@@ -8,6 +8,7 @@ let appState = {
 
 // DOM Elements
 const btnRefresh = document.getElementById('btn-refresh');
+const btnExportCSV = document.getElementById('btn-export-csv');
 const btnRetry = document.getElementById('btn-retry');
 const searchInput = document.getElementById('search-input');
 const filterChips = document.querySelectorAll('.filter-chip');
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Event Listeners setup
 function setupEventListeners() {
     btnRefresh.addEventListener('click', fetchReleaseNotes);
+    btnExportCSV.addEventListener('click', exportFeedToCSV);
     btnRetry.addEventListener('click', fetchReleaseNotes);
     
     // Search listener (with simple debounce/input response)
@@ -466,6 +468,60 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// Export parsed feed to CSV file
+function exportFeedToCSV() {
+    if (appState.releaseNotes.length === 0) {
+        alert("No release notes available to export. Please reload data first.");
+        return;
+    }
+    
+    // CSV headers
+    const headers = ["Date", "Link", "Update Type", "Description"];
+    const csvRows = [headers.join(",")];
+    
+    appState.releaseNotes.forEach(entry => {
+        entry.updates.forEach(update => {
+            // Convert HTML description to clean plain text
+            let descText = stripHtml(update.description).trim();
+            // Collapse whitespaces
+            descText = descText.replace(/\s+/g, ' ');
+            
+            const row = [
+                entry.date,
+                update.link,
+                update.type,
+                descText
+            ];
+            
+            // Format each column safely for CSV: double quote wraps, escaping existing double quotes
+            const formattedRow = row.map(cell => {
+                const escaped = String(cell).replace(/"/g, '""');
+                return `"${escaped}"`;
+            });
+            
+            csvRows.push(formattedRow.join(","));
+        });
+    });
+    
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create temporary download link element
+    const downloadLink = document.createElement("a");
+    const timestamp = new Date().toISOString().slice(0, 10);
+    downloadLink.href = url;
+    downloadLink.download = `bigquery_release_notes_${timestamp}.csv`;
+    downloadLink.style.display = "none";
+    
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    
+    // Cleanup
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(url);
 }
 
 // Copy Updates Text to Clipboard
